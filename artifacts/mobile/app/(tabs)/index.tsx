@@ -17,6 +17,7 @@ import { useApp, todayStr } from '@/context/AppContext';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { generateFullReportHTML, exportPDF } from '@/utils/pdfExport';
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -51,6 +52,19 @@ export default function HomeScreen() {
     updateSettings({ establishmentName: name, address, defaultMonitor: monitor });
     setSettingsOpen(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const handleExportFullReport = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const html = generateFullReportHTML(
+      buffetLogs.filter(e => e.date === today),
+      thawingLogs.filter(e => e.date === today),
+      receivedLogs.filter(e => e.date === today),
+      disinfectionLogs.filter(e => e.date === today),
+      today,
+      settings,
+    );
+    await exportPDF(html, `Daily-Food-Safety-Report-${today}.pdf`);
   };
 
   const cards = [
@@ -188,6 +202,24 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Export Today's Full Report */}
+        <TouchableOpacity
+          style={[styles.exportCard, { backgroundColor: colors.card, borderColor: colors.primary + '50' }]}
+          onPress={handleExportFullReport}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.exportIconWrap, { backgroundColor: colors.primary }]}>
+            <Feather name="file-text" size={20} color="#fff" />
+          </View>
+          <View style={styles.exportCardBody}>
+            <Text style={[styles.exportCardTitle, { color: colors.text }]}>Export Today's Full Report</Text>
+            <Text style={[styles.exportCardSub, { color: colors.mutedForeground }]}>
+              PDF · All 4 CCP logs · HACCP / ISO 22000 layout
+            </Text>
+          </View>
+          <Feather name="share" size={18} color={colors.primary} />
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Settings Modal */}
@@ -272,6 +304,11 @@ const styles = StyleSheet.create({
   infoText: { flex: 1 },
   infoTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 12, marginBottom: 4 },
   infoSub: { fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 },
+  exportCard: { marginHorizontal: 16, marginTop: 8, marginBottom: 10, borderRadius: 14, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
+  exportIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  exportCardBody: { flex: 1 },
+  exportCardTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+  exportCardSub: { fontFamily: 'Inter_400Regular', fontSize: 11, marginTop: 2 },
   // Modal
   modalRoot: { flex: 1 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 16 },

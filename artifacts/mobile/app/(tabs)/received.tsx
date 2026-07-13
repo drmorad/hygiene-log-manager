@@ -19,6 +19,7 @@ import { DocumentHeader } from '@/components/DocumentHeader';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { generateReceivedHTML, exportPDF } from '@/utils/pdfExport';
 
 const CHILLED_LIMIT = 5;
 const FROZEN_LIMIT = -18;
@@ -103,6 +104,12 @@ export default function ReceivedScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => { deleteReceivedEntry(id); Haptics.impactAsync(); } },
     ]);
+  };
+
+  const handleExport = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const html = generateReceivedHTML(filtered, filterDate, settings);
+    await exportPDF(html, `Received-Items-Log-${filterDate}.pdf`);
   };
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
@@ -191,6 +198,14 @@ export default function ReceivedScreen() {
           placeholder="YYYY-MM-DD" placeholderTextColor={colors.mutedForeground}
         />
         <Text style={[styles.entryCount, { color: colors.mutedForeground }]}>{filtered.length} deliveries</Text>
+        <TouchableOpacity
+          style={[styles.exportBtn, { backgroundColor: colors.primary }]}
+          onPress={handleExport}
+          activeOpacity={0.8}
+        >
+          <Feather name="share" size={14} color="#fff" />
+          <Text style={styles.exportBtnText}>PDF</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -362,6 +377,8 @@ const styles = StyleSheet.create({
   emptyText: { fontFamily: 'Inter_600SemiBold', fontSize: 16 },
   emptySub: { fontFamily: 'Inter_400Regular', fontSize: 13 },
   fab: { position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 6 },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  exportBtnText: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 11 },
   modalRoot: { flex: 1 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
   modalTitle: { flex: 1, color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 17 },
