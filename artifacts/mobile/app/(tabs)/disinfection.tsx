@@ -20,6 +20,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { generateDisinfectionHTML, exportPDF } from '@/utils/pdfExport';
+import { MenuPicker } from '@/components/MenuPicker';
+import { MenuLibraryModal } from '@/components/MenuLibraryModal';
 
 const SOLUTIONS = [
   { label: 'Chlorine (NaOCl)', concentration: '100-200 ppm', contactTime: '2 min' },
@@ -33,9 +35,10 @@ const SOLUTIONS = [
 export default function DisinfectionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { disinfectionLogs, addDisinfectionEntry, deleteDisinfectionEntry, settings } = useApp();
+  const { disinfectionLogs, addDisinfectionEntry, deleteDisinfectionEntry, settings, menuItems } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [filterDate, setFilterDate] = useState(todayStr());
+  const [menuLibraryOpen, setMenuLibraryOpen] = useState(false);
   const [solutionPickerOpen, setSolutionPickerOpen] = useState(false);
 
   // Form state
@@ -204,6 +207,12 @@ export default function DisinfectionScreen() {
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
+      <MenuLibraryModal
+        visible={menuLibraryOpen}
+        onClose={() => setMenuLibraryOpen(false)}
+        initialCategory="produce"
+      />
+
       {/* Main form modal */}
       <Modal visible={modalOpen} animationType="slide" presentationStyle="formSheet">
         <View style={[styles.modalRoot, { backgroundColor: colors.background }]}>
@@ -220,6 +229,18 @@ export default function DisinfectionScreen() {
           <ScrollView style={styles.modalScroll} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>TIME</Text>
             <TextInput style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.card }]} value={time} onChangeText={setTime} placeholder="HH:MM" placeholderTextColor={colors.mutedForeground} />
+
+            {/* Quick-pick produce from menu */}
+            <MenuPicker
+              items={menuItems}
+              category="produce"
+              label="PRODUCE QUICK-PICK"
+              onSelect={m => {
+                setItems(prev => prev ? `${prev}, ${m.name}` : m.name);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              onManage={() => setMenuLibraryOpen(true)}
+            />
 
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>ITEMS DISINFECTED</Text>
             <TextInput

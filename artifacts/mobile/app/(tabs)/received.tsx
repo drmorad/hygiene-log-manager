@@ -20,6 +20,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { generateReceivedHTML, exportPDF } from '@/utils/pdfExport';
+import { MenuPicker } from '@/components/MenuPicker';
+import { MenuLibraryModal } from '@/components/MenuLibraryModal';
 
 const CHILLED_LIMIT = 5;
 const FROZEN_LIMIT = -18;
@@ -36,9 +38,10 @@ function itemStatus(temp: string, packOk: boolean): Status {
 export default function ReceivedScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { receivedLogs, addReceivedEntry, deleteReceivedEntry, settings } = useApp();
+  const { receivedLogs, addReceivedEntry, deleteReceivedEntry, settings, menuItems } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [filterDate, setFilterDate] = useState(todayStr());
+  const [menuLibraryOpen, setMenuLibraryOpen] = useState(false);
 
   // Delivery form
   const [supplier, setSupplier] = useState('');
@@ -230,6 +233,12 @@ export default function ReceivedScreen() {
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
+      <MenuLibraryModal
+        visible={menuLibraryOpen}
+        onClose={() => setMenuLibraryOpen(false)}
+        initialCategory="received"
+      />
+
       {/* Main delivery modal */}
       <Modal visible={modalOpen} animationType="slide" presentationStyle="formSheet">
         <View style={[styles.modalRoot, { backgroundColor: colors.background }]}>
@@ -309,6 +318,19 @@ export default function ReceivedScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalScroll} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+            {/* Quick-pick from menu */}
+            <MenuPicker
+              items={menuItems}
+              category="received"
+              label="RECEIVED GOODS QUICK-PICK"
+              onSelect={m => {
+                setIName(m.name);
+                if (m.defaultUnit) setIUnit(m.defaultUnit);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              onManage={() => setMenuLibraryOpen(true)}
+            />
+
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>ITEM NAME</Text>
             <TextInput style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.card }]} value={iName} onChangeText={setIName} placeholder="e.g. Whole Chicken" placeholderTextColor={colors.mutedForeground} autoFocus />
 

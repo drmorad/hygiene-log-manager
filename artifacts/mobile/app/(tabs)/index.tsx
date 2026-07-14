@@ -18,12 +18,14 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { generateFullReportHTML, exportPDF } from '@/utils/pdfExport';
+import { MenuLibraryModal } from '@/components/MenuLibraryModal';
 
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings, updateSettings, buffetLogs, thawingLogs, receivedLogs, disinfectionLogs } = useApp();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [menuLibraryOpen, setMenuLibraryOpen] = useState(false);
   const [name, setName] = useState(settings.establishmentName);
   const [address, setAddress] = useState(settings.address);
   const [monitor, setMonitor] = useState(settings.defaultMonitor);
@@ -262,9 +264,29 @@ export default function HomeScreen() {
             >
               <Text style={styles.saveBtnText}>Save Settings</Text>
             </TouchableOpacity>
+
+            {/* Menu Library shortcut */}
+            <TouchableOpacity
+              style={[styles.menuLibraryBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              onPress={() => { setSettingsOpen(false); setTimeout(() => setMenuLibraryOpen(true), 300); }}
+            >
+              <Feather name="list" size={18} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuLibraryTitle, { color: colors.text }]}>Manage Menu Library</Text>
+                <Text style={[styles.menuLibrarySub, { color: colors.mutedForeground }]}>
+                  Add, edit or remove quick-pick food items for all logs
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
           </ScrollView>
         </View>
       </Modal>
+
+      <MenuLibraryModal
+        visible={menuLibraryOpen}
+        onClose={() => setMenuLibraryOpen(false)}
+      />
     </View>
   );
 }
@@ -309,6 +331,9 @@ const styles = StyleSheet.create({
   exportCardBody: { flex: 1 },
   exportCardTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
   exportCardSub: { fontFamily: 'Inter_400Regular', fontSize: 11, marginTop: 2 },
+  menuLibraryBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 12, borderWidth: 1, padding: 14, marginTop: 12 },
+  menuLibraryTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+  menuLibrarySub: { fontFamily: 'Inter_400Regular', fontSize: 11, marginTop: 2 },
   // Modal
   modalRoot: { flex: 1 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 16 },

@@ -19,6 +19,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { generateThawingHTML, exportPDF } from '@/utils/pdfExport';
+import { MenuPicker } from '@/components/MenuPicker';
+import { MenuLibraryModal } from '@/components/MenuLibraryModal';
 
 const THAW_LIMIT = 5; // °C — thawing temperature must not exceed 5°C in refrigerator
 
@@ -50,9 +52,10 @@ function calcStatus(temp: string, method: ThawMethod): Status {
 export default function ThawingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { thawingLogs, addThawingEntry, deleteThawingEntry, settings } = useApp();
+  const { thawingLogs, addThawingEntry, deleteThawingEntry, settings, menuItems } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [filterDate, setFilterDate] = useState(todayStr());
+  const [menuLibraryOpen, setMenuLibraryOpen] = useState(false);
 
   const [itemName, setItemName] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -214,6 +217,12 @@ export default function ThawingScreen() {
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
+      <MenuLibraryModal
+        visible={menuLibraryOpen}
+        onClose={() => setMenuLibraryOpen(false)}
+        initialCategory="thawing"
+      />
+
       <Modal visible={modalOpen} animationType="slide" presentationStyle="formSheet">
         <View style={[styles.modalRoot, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { backgroundColor: colors.primary, paddingTop: insets.top + 14 }]}>
@@ -227,6 +236,20 @@ export default function ThawingScreen() {
           </View>
 
           <ScrollView style={styles.modalScroll} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+            {/* Quick-pick from menu */}
+            <MenuPicker
+              items={menuItems}
+              category="thawing"
+              label="THAWING MENU ITEMS"
+              onSelect={m => {
+                setItemName(m.name);
+                if (m.defaultMethod) setMethod(m.defaultMethod);
+                if (m.defaultUnit) setUnit(m.defaultUnit);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              onManage={() => setMenuLibraryOpen(true)}
+            />
+
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>THAWING METHOD</Text>
             <View style={styles.methodGrid}>
               {METHODS.map(m => (

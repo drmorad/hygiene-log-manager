@@ -21,6 +21,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { generateBuffetHTML, exportPDF } from '@/utils/pdfExport';
+import { MenuPicker } from '@/components/MenuPicker';
+import { MenuLibraryModal } from '@/components/MenuLibraryModal';
 
 // HACCP critical limits
 const HOT_LIMIT = 63;  // °C minimum for hot foods
@@ -43,9 +45,11 @@ function calcStatus(temp: string, type: 'hot' | 'cold'): Status {
 export default function BuffetScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { buffetLogs, addBuffetEntry, deleteBuffetEntry, settings } = useApp();
+  const { buffetLogs, addBuffetEntry, deleteBuffetEntry, settings, menuItems } = useApp();
   const [modalOpen, setModalOpen] = useState(false);
   const [filterDate, setFilterDate] = useState(todayStr());
+  const [menuLibraryOpen, setMenuLibraryOpen] = useState(false);
+  const [menuLibraryCategory, setMenuLibraryCategory] = useState<'hot' | 'cold'>('hot');
 
   // Form state
   const [zone, setZone] = useState('');
@@ -215,6 +219,12 @@ export default function BuffetScreen() {
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
+      <MenuLibraryModal
+        visible={menuLibraryOpen}
+        onClose={() => setMenuLibraryOpen(false)}
+        initialCategory={menuLibraryCategory}
+      />
+
       {/* Add Entry Modal */}
       <Modal visible={modalOpen} animationType="slide" presentationStyle="formSheet">
         <View style={[styles.modalRoot, { backgroundColor: colors.background }]}>
@@ -229,6 +239,19 @@ export default function BuffetScreen() {
           </View>
 
           <ScrollView style={styles.modalScroll} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+            {/* Quick-pick from menu */}
+            <MenuPicker
+              items={menuItems}
+              category={type}
+              label={type === 'hot' ? 'HOT MENU ITEMS' : 'COLD MENU ITEMS'}
+              onSelect={m => {
+                setItem(m.name);
+                if (m.defaultZone) setZone(m.defaultZone);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              onManage={() => { setMenuLibraryCategory(type); setMenuLibraryOpen(true); }}
+            />
+
             {/* Type selector */}
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>FOOD TYPE</Text>
             <View style={styles.typeRow}>
