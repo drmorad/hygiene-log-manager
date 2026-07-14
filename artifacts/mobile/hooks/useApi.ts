@@ -3,18 +3,24 @@ import { useAuth } from '@/context/AuthContext';
 import { Platform } from 'react-native';
 
 /**
- * Returns the API base URL. In Expo Go on a physical device the
- * EXPO_PUBLIC_DOMAIN env var is the Replit dev domain. On web it
- * falls back to a relative path since both run behind the same proxy.
+ * Returns the API base URL.
+ *
+ * On web we use a relative URL ("/api-server/api") so the browser makes a
+ * same-origin request.  Same-origin requests carry no Origin header, which
+ * lets Replit's proxy route /api-server correctly to the API server (port 8080)
+ * without being intercepted by the Expo dev-server's CORS middleware.
+ *
+ * On native (Expo Go / dev build) we need the absolute URL because there is
+ * no shared proxy — EXPO_PUBLIC_DOMAIN is the Replit dev domain baked in at
+ * Metro bundle time.
  */
 export function getApiBase(): string {
-  // EXPO_PUBLIC_DOMAIN is injected by the mobile workflow command
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) {
-    // The API server artifact is at /api-server/api
-    return `https://${domain}/api-server/api`;
+  if (Platform.OS === 'web') {
+    return '/api-server/api';
   }
-  // Fallback for local/web
+  // Native: use baked-in env var
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (domain) return `https://${domain}/api-server/api`;
   return '/api-server/api';
 }
 

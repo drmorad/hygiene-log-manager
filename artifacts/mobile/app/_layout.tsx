@@ -11,7 +11,7 @@ import {
   Inter_600SemiBold, Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
-import { Redirect, Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -21,6 +21,27 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const { user, currentHotel, isLoading } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inTabs = segments[0] === '(tabs)';
+    const inLogin = segments[0] === 'login';
+    const inHotelPicker = segments[0] === 'hotel-picker';
+
+    if (!user) {
+      // Not logged in → go to login
+      if (!inLogin) router.replace('/login');
+    } else if (!currentHotel && user.role === 'manager') {
+      // Manager with no hotel → pick hotel
+      if (!inHotelPicker) router.replace('/hotel-picker');
+    } else {
+      // Authenticated → go to tabs if not already there
+      if (!inTabs) router.replace('/(tabs)');
+    }
+  }, [user, currentHotel, isLoading, segments]);
 
   if (isLoading) {
     return (
@@ -30,36 +51,13 @@ function RootLayoutNav() {
     );
   }
 
-  const stack = (
+  return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" />
       <Stack.Screen name="hotel-picker" />
     </Stack>
   );
-
-  // Not logged in → login screen
-  if (!user) {
-    return (
-      <>
-        {stack}
-        <Redirect href="/login" />
-      </>
-    );
-  }
-
-  // Manager without hotel → hotel picker
-  if (!currentHotel && user.role === 'manager') {
-    return (
-      <>
-        {stack}
-        <Redirect href="/hotel-picker" />
-      </>
-    );
-  }
-
-  // Director (with or without hotel) and managers with hotel → tabs
-  return stack;
 }
 
 export default function RootLayout() {
