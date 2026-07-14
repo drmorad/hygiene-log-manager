@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/context/AuthContext';
+import { getApiBase } from '@/hooks/useApi';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -180,6 +182,9 @@ export const DEFAULT_MENU_ITEMS: MenuItem[] = [
 ];
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  // AppProvider is always mounted inside AuthProvider so useAuth() is safe here
+  const { user: authUser, token: authToken, currentHotel: authHotel } = useAuth();
+
   const [settings, setSettings] = useState<Settings>({
     establishmentName: 'My Establishment',
     address: '',
@@ -216,69 +221,95 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try { await AsyncStorage.setItem(key, JSON.stringify(data)); } catch (_) {}
   };
 
+  /** Fire-and-forget API call — failures are silent, local state is source of truth */
+  const apiPost = (path: string, body: unknown) => {
+    if (!authToken) return;
+    fetch(`${getApiBase()}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify(body),
+    }).catch(() => {});
+  };
+
+  const apiDelete = (path: string) => {
+    if (!authToken) return;
+    fetch(`${getApiBase()}${path}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    }).catch(() => {});
+  };
+
   const updateSettings = (s: Settings) => {
     setSettings(s);
     save(KEYS.settings, s);
   };
 
   const addBuffetEntry = (entry: BuffetEntry) => {
-    setBuffetLogs(prev => {
-      const next = [entry, ...prev];
-      save(KEYS.buffet, next);
-      return next;
+    setBuffetLogs(prev => { const next = [entry, ...prev]; save(KEYS.buffet, next); return next; });
+    apiPost('/logs/buffet', {
+      id: entry.id, date: entry.date, time: entry.time,
+      item: entry.item, zone: entry.zone ?? '', type: entry.type,
+      temperature: parseFloat(entry.temperature) || 0,
+      status: entry.status, correctiveAction: entry.correctiveAction,
+      monitoredBy: entry.monitoredBy, notes: '',
+      hotelId: authHotel ?? 'Unknown', managerId: authUser?.id ?? '', managerName: authUser?.name ?? '',
     });
   };
   const deleteBuffetEntry = (id: string) => {
-    setBuffetLogs(prev => {
-      const next = prev.filter(e => e.id !== id);
-      save(KEYS.buffet, next);
-      return next;
-    });
+    setBuffetLogs(prev => { const next = prev.filter(e => e.id !== id); save(KEYS.buffet, next); return next; });
+    apiDelete(`/logs/buffet/${id}`);
   };
 
   const addThawingEntry = (entry: ThawingEntry) => {
-    setThawingLogs(prev => {
-      const next = [entry, ...prev];
-      save(KEYS.thawing, next);
-      return next;
+    setThawingLogs(prev => { const next = [entry, ...prev]; save(KEYS.thawing, next); return next; });
+    apiPost('/logs/thawing', {
+      id: entry.id, date: entry.date,
+      itemName: entry.item, method: entry.method,
+      startDate: entry.date, endDate: entry.date,
+      initialTemp: parseFloat(entry.temperature) || 0,
+      unit: entry.unit, quantity: entry.quantity,
+      status: entry.status, correctiveAction: entry.correctiveAction,
+      monitoredBy: entry.monitoredBy, notes: '',
+      hotelId: authHotel ?? 'Unknown', managerId: authUser?.id ?? '', managerName: authUser?.name ?? '',
     });
   };
   const deleteThawingEntry = (id: string) => {
-    setThawingLogs(prev => {
-      const next = prev.filter(e => e.id !== id);
-      save(KEYS.thawing, next);
-      return next;
-    });
+    setThawingLogs(prev => { const next = prev.filter(e => e.id !== id); save(KEYS.thawing, next); return next; });
+    apiDelete(`/logs/thawing/${id}`);
   };
 
   const addReceivedEntry = (entry: ReceivedEntry) => {
-    setReceivedLogs(prev => {
-      const next = [entry, ...prev];
-      save(KEYS.received, next);
-      return next;
+    setReceivedLogs(prev => { const next = [entry, ...prev]; save(KEYS.received, next); return next; });
+    apiPost('/logs/received', {
+      id: entry.id, date: entry.date, time: entry.time,
+      supplier: entry.supplier,
+      vehicleTemp: parseFloat(entry.items?.[0]?.temperature ?? '0') || 0,
+      items: entry.items,
+      status: entry.overallStatus, monitoredBy: entry.receivedBy, notes: entry.notes,
+      hotelId: authHotel ?? 'Unknown', managerId: authUser?.id ?? '', managerName: authUser?.name ?? '',
     });
   };
   const deleteReceivedEntry = (id: string) => {
-    setReceivedLogs(prev => {
-      const next = prev.filter(e => e.id !== id);
-      save(KEYS.received, next);
-      return next;
-    });
+    setReceivedLogs(prev => { const next = prev.filter(e => e.id !== id); save(KEYS.received, next); return next; });
+    apiDelete(`/logs/received/${id}`);
   };
 
   const addDisinfectionEntry = (entry: DisinfectionEntry) => {
-    setDisinfectionLogs(prev => {
-      const next = [entry, ...prev];
-      save(KEYS.disinfection, next);
-      return next;
+    setDisinfectionLogs(prev => { const next = [entry, ...prev]; save(KEYS.disinfection, next); return next; });
+    apiPost('/logs/disinfection', {
+      id: entry.id, date: entry.date, time: entry.time,
+      items: entry.items, solution: entry.solutionType,
+      concentration: parseFloat(entry.concentration) || 0,
+      contactTime: parseInt(entry.contactTime) || 0,
+      waterTemp: 0, ph: null,
+      status: entry.status, correctiveAction: '',
+      monitoredBy: entry.monitoredBy, notes: entry.notes,
+      hotelId: authHotel ?? 'Unknown', managerId: authUser?.id ?? '', managerName: authUser?.name ?? '',
     });
   };
   const deleteDisinfectionEntry = (id: string) => {
-    setDisinfectionLogs(prev => {
-      const next = prev.filter(e => e.id !== id);
-      save(KEYS.disinfection, next);
-      return next;
-    });
+    setDisinfectionLogs(prev => { const next = prev.filter(e => e.id !== id); save(KEYS.disinfection, next); return next; });
+    apiDelete(`/logs/disinfection/${id}`);
   };
 
   const addMenuItem = (item: MenuItem) => {

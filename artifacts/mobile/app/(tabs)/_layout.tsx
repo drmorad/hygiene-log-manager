@@ -7,10 +7,20 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
+import { useAuth } from '@/context/AuthContext';
 
 function NativeTabLayout() {
+  const { user } = useAuth();
+  const isDirector = user?.role === 'director';
+
   return (
     <NativeTabs>
+      {isDirector && (
+        <NativeTabs.Trigger name="director">
+          <Icon sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }} />
+          <Label>Director</Label>
+        </NativeTabs.Trigger>
+      )}
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: 'house', selected: 'house.fill' }} />
         <Label>Home</Label>
@@ -41,9 +51,12 @@ function ClassicTabLayout() {
   const isDark = colorScheme === 'dark';
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
+  const { user } = useAuth();
+  const isDirector = user?.role === 'director';
 
   return (
     <Tabs
+      initialRouteName={isDirector ? 'director' : 'index'}
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
@@ -63,18 +76,23 @@ function ClassicTabLayout() {
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView
-              intensity={100}
-              tint={isDark ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFill}
-            />
+            <BlurView intensity={100} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
           ) : isWeb ? (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]}
-            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
           ) : null,
       }}
     >
+      {/* Director-only tab */}
+      <Tabs.Screen
+        name="director"
+        options={{
+          title: 'Director',
+          tabBarButton: isDirector ? undefined : () => null,
+          tabBarIcon: ({ color }) =>
+            isIOS ? <SymbolView name="chart.bar.fill" tintColor={color} size={22} /> : <Feather name="bar-chart-2" size={22} color={color} />,
+          tabBarActiveTintColor: '#6D28D9',
+        }}
+      />
       <Tabs.Screen
         name="index"
         options={{
