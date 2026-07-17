@@ -116,6 +116,7 @@ interface AppContextType {
   addMenuItem: (item: MenuItem) => void;
   deleteMenuItem: (id: string) => void;
   updateMenuItem: (item: MenuItem) => void;
+  syncFromServer: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -220,6 +221,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const save = async (key: string, data: unknown) => {
     try { await AsyncStorage.setItem(key, JSON.stringify(data)); } catch (_) {}
   };
+
+  /**
+   * Pull the current hotel's logs from the API and merge them into local
+   * state. This makes logs visible on any device (a new phone, a second
+   * manager's device) rather than only the one that created them.
+   * Local-only entries that the server doesn't have are preserved.
+   */
+  const syncFromServer = useCallback(async () => {
+    if (!authToken || !authHotel) return;
+    const types: { key: keyof typeof KEYS; setter: (v: any[]) => void; remote: string }[] = [
+      { key: 'buffet', setter: setBuffetLogs, remote: 'buffet' },
+      { key: 'thawing', setter: setThawingLogs, remote: 'thawing' },
+      { key: 'received', setter: setReceivedLogs, remote: 'received' },
+      { key: 'disinfection', setter: setDisinfectionLogs, remote: 'disinfection' },
+    ];
+    await Promise.all(
+      types.map(async ({ setter, remote }) => {
+        try {
+          const res = await fetch(
+            `${getApiBase()}/logs/${remote}?hotel=${encodeURIComponent(authHotel)}`,
+            { headers: { Authorization: `Bearer ${authToken}` } },
+          );
+          if (!res.ok) return;
+          const rows: any[] = await res.json();
+          setter((prev: any[]) => {
+            const byId = new Map(prev.map((e) => [e.id, e]));
+            for (const r of rows) byId.set(r.id, r);
+            const next = Array.from(byId.values());
+            save(KEYS[remote as keyof typeof KEYS], next);
+            return next;
+          });
+        } catch (_) {
+          /* offline — keep local data */
+        }
+      }),
+    );
+  }, [authToken, authHotel]);
+
+  // Reload server logs when the authenticated user/hotel changes
+  useEffect(() => {
+    syncFromServer();
+  }, [syncFromServer]);
 
   /** Fire-and-forget API call — failures are silent, local state is source of truth */
   const apiPost = (path: string, body: unknown) => {
@@ -342,6 +385,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       receivedLogs, addReceivedEntry, deleteReceivedEntry,
       disinfectionLogs, addDisinfectionEntry, deleteDisinfectionEntry,
       menuItems, addMenuItem, deleteMenuItem, updateMenuItem,
+      syncFromServer,
     }}>
       {children}
     </AppContext.Provider>

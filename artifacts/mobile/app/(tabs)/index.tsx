@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,7 +24,7 @@ import { MenuLibraryModal } from '@/components/MenuLibraryModal';
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { settings, updateSettings, buffetLogs, thawingLogs, receivedLogs, disinfectionLogs } = useApp();
+  const { settings, updateSettings, buffetLogs, thawingLogs, receivedLogs, disinfectionLogs, syncFromServer } = useApp();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuLibraryOpen, setMenuLibraryOpen] = useState(false);
   const [name, setName] = useState(settings.establishmentName);
@@ -31,6 +32,13 @@ export default function HomeScreen() {
   const [monitor, setMonitor] = useState(settings.defaultMonitor);
 
   const today = todayStr();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await syncFromServer();
+    setRefreshing(false);
+  };
 
   const todayBuffet = buffetLogs.filter(e => e.date === today);
   const todayThawing = thawingLogs.filter(e => e.date === today);
@@ -155,6 +163,7 @@ export default function HomeScreen() {
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 120 : 90 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
           TODAY'S RECORDS
