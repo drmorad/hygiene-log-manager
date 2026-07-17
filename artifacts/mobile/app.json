@@ -20,6 +20,9 @@
     "web": {
       "favicon": "./assets/images/icon.png"
     },
+    "extra": {
+      "apiUrl": "https://rewaya-hygiene-api.onrender.com"
+    },
     "plugins": [
       [
         "expo-router",
