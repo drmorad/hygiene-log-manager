@@ -39,39 +39,48 @@ GitHub **first** (do not add a README/.gitignore when creating it).
 
 ---
 
-## 2. Deploy the API to Render
+## 2. Deploy the API to Render (database on Supabase)
+
+The API uses **Supabase Postgres (free tier)** for storage. Render only hosts
+the API process.
+
+### 2a. Create the Supabase database
+
+1. Go to https://supabase.com → **Sign up** (free).
+2. **New project** → name it `hygiene` → pick a region near you → create.
+3. In the project, go to **Project Settings → Database** → copy the
+   **Connection string** (URI) under "URI". It looks like:
+   `postgresql://postgres:[PASSWORD]@db.XXXX.supabase.co:5432/postgres`
+4. **Keep this URI secret** — you'll paste it to me so I can run the schema
+   migration from your machine (no Render Shell needed).
+
+### 2b. Deploy the API on Render
 
 1. Go to https://render.com → **New** → **Blueprint**.
 2. Connect your GitHub account and select the `hygiene-log-manager` repo.
-3. Render reads `render.yaml` and creates:
-   - a **Web Service** (`rewaya-hygiene-api`, free tier)
-   - a **Postgres database** (`rewaya-hygiene-db`, free tier)
-   with `DATABASE_URL` wired automatically.
+3. Render reads `render.yaml` and creates the **Web Service**
+   (`rewaya-hygiene-api`, free tier). No database is created by Render — the
+   `DATABASE_URL` is set manually below.
 4. Click **Apply** and wait for the build to finish.
+5. Open the service → **Environment** → add `DATABASE_URL` = your Supabase URI
+   (from 2a). **Save** and **Manual Deploy → Deploy latest commit** so it picks
+   up the variable.
 
 ### Run the database migration (one time)
 
-After the first deploy, create the tables:
+Paste the Supabase URI to me and I'll run locally on your machine:
 
-- In Render, open the **API service** → **Shell** tab, then run:
+```bash
+$env:DATABASE_URL="<supabase-uri>"
+pnpm --filter @workspace/db run push
+```
 
-  ```bash
-  pnpm --filter @workspace/db run push
-  ```
+This creates all tables. After that, the API is fully live.
 
-  (If the Shell isn't available on the free plan, run it locally against the
-  Render DB URL: `DATABASE_URL=<render-postgres-uri> pnpm --filter @workspace/db run push`)
-
-5. Copy your API URL, e.g. `https://rewaya-hygiene-api.onrender.com`.
+6. Copy your API URL, e.g. `https://rewaya-hygiene-api.onrender.com`.
 
 > Free Render web services spin down after inactivity (~30–60s cold start).
 > For an always-on option use a $5/mo instance or Railway.
-
-### Using Supabase Postgres instead (optional)
-
-1. Create a free Supabase project → copy the **URI** connection string.
-2. In Render, set `DATABASE_URL` manually (instead of `fromDatabase`).
-3. Run the migration (step above) against that URI.
 
 ---
 

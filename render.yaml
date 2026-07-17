@@ -2,7 +2,10 @@
 # Docs: https://render.com/docs/yaml-spec
 #
 # This deploys the Express API (artifacts/api-server) as a Web Service.
-# The Postgres database is provisioned separately (or use Supabase — see README).
+# The Postgres database is hosted on Supabase (free tier). Set DATABASE_URL
+# in the Render dashboard (or via the render CLI) to your Supabase URI.
+# The schema migration is run once with:
+#   DATABASE_URL=<supabase-uri> pnpm --filter @workspace/db run push
 
 services:
   - type: web
@@ -26,14 +29,6 @@ services:
         value: "24"
       - key: PORT
         value: 10000
+      # Set this in the Render dashboard to your Supabase connection string.
       - key: DATABASE_URL
-        fromDatabase:
-          name: rewaya-hygiene-db
-          property: connectionString
-
-databases:
-  - name: rewaya-hygiene-db
-    databaseName: hygiene
-    user: hygiene
-    plan: free
-    region: oregon
+        sync: false
