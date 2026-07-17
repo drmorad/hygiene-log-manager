@@ -14,13 +14,16 @@ services:
     # Build the pnpm workspace, then build & start the api-server
     buildCommand: |
       corepack enable
-      pnpm install --frozen-lockfile
+      corepack prepare pnpm@9.15.0 --activate
+      pnpm install --no-frozen-lockfile --config.strict-peer-dependencies=false
       pnpm --filter @workspace/api-server run build
     startCommand: node artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "24"
       - key: PORT
         value: 10000
       - key: DATABASE_URL
