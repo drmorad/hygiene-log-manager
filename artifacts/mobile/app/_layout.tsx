@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import PasswordChangeModal from '@/components/PasswordChangeModal';
 import { AppProvider } from '@/context/AppContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import {
@@ -20,7 +21,7 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
-  const { user, currentHotel, isLoading } = useAuth();
+  const { user, currentHotel, isLoading, markPasswordChanged } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
@@ -52,11 +53,19 @@ function RootLayoutNav() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="hotel-picker" />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="hotel-picker" />
+      </Stack>
+      <PasswordChangeModal
+        visible={!!user?.requiresPasswordChange}
+        onClose={() => {}}
+        onSuccess={markPasswordChanged}
+        force
+      />
+    </>
   );
 }
 

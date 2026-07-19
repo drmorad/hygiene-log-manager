@@ -3,7 +3,15 @@ import { Router } from 'express';
 import { db } from '@workspace/db';
 import { users, sessions } from '@workspace/db/schema';
 import { eq } from 'drizzle-orm';
-import { hashPassword, verifyPassword, generateToken, requireAuth } from '../lib/auth';
+import {
+  createFallbackSession,
+  getFallbackDirectorUser,
+  deleteFallbackSession,
+  getFallbackSession,
+  generateToken,
+  requireAuth,
+  verifyPassword,
+} from '../lib/auth';
 
 const router = Router();
 
@@ -13,6 +21,13 @@ router.post('/login', async (req, res, next) => {
     const { username, password } = req.body as { username: string; password: string };
     if (!username || !password) {
       res.status(400).json({ error: 'Username and password required' });
+      return;
+    }
+
+    const fallbackUser = getFallbackDirectorUser(username, password);
+    if (fallbackUser) {
+      const token = createFallbackSession(fallbackUser);
+      res.json({ token, user: fallbackUser });
       return;
     }
 
@@ -40,6 +55,7 @@ router.post('/login', async (req, res, next) => {
         name: user.name,
         role: user.role,
         allowedHotels: user.allowedHotels,
+        requiresPasswordChange: user.passwordChangeRequired,
       },
     });
   } catch (err) {
@@ -56,6 +72,13 @@ router.get('/me', requireAuth, (req, res) => {
 router.post('/logout', requireAuth, async (req, res, next) => {
   try {
     const token = req.headers.authorization!.slice(7);
+    const fallbackSession = getFallbackSession(token);
+    if (fallbackSession) {
+      deleteFallbackSession(token);
+      res.json({ ok: true });
+      return;
+    }
+
     await db.delete(sessions).where(eq(sessions.token, token));
     res.json({ ok: true });
   } catch (err) {

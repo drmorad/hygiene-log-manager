@@ -2,7 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { db } from "@workspace/db";
 import { users } from "@workspace/db/schema";
-import { hashPassword, generateToken } from "./lib/auth";
+import { hashPassword } from "./lib/auth";
 import { eq } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
@@ -29,6 +29,7 @@ async function seedDirector() {
         name: "Quality & Hygiene Director",
         role: "director",
         allowedHotels: ["Rewaya Majestic", "Rewaya Inn", "Rewaya Luxury"],
+        passwordChangeRequired: true,
       });
       logger.info("──────────────────────────────────────────────────────────");
       logger.info("  Director account created (first-time setup)");

@@ -12,6 +12,7 @@ export interface AuthUser {
   name: string;
   role: 'director' | 'manager';
   allowedHotels: Hotel[];
+  requiresPasswordChange?: boolean;
 }
 
 interface AuthContextType {
@@ -22,6 +23,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   selectHotel: (hotel: Hotel) => void;
+  markPasswordChanged: () => void;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -94,8 +96,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(HOTEL_KEY, hotel);
   }, []);
 
+  const markPasswordChanged = useCallback(async () => {
+    setUser(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, requiresPasswordChange: false };
+      AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ user: updated, token }));
+      return updated;
+    });
+  }, [token]);
+
   return (
-    <AuthContext.Provider value={{ user, token, currentHotel, isLoading, login, logout, selectHotel }}>
+    <AuthContext.Provider value={{ user, token, currentHotel, isLoading, login, logout, selectHotel, markPasswordChanged }}>
       {children}
     </AuthContext.Provider>
   );

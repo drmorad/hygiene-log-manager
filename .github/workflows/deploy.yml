@@ -1,0 +1,68 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL || vars.DATABASE_URL || '' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL || '' }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY || '' }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || vars.SUPABASE_SECRET_KEY || '' }}
+      SUPABASE_JWKS_URL: ${{ secrets.SUPABASE_JWKS_URL || vars.SUPABASE_JWKS_URL || '' }}
+      VITE_API_URL: ${{ vars.VITE_API_URL || 'https://rewaya-hygiene-api.onrender.com' }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.SUPABASE_URL || '' }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_PUBLISHABLE_KEY || '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile --config.strict-peer-dependencies=false
+
+      - name: Build API
+        run: pnpm --filter @workspace/api-server run build
+
+      - name: Run DB migration
+        if: ${{ env.DATABASE_URL != '' }}
+        run: pnpm --filter @workspace/db run push
+
+      - name: Build web app
+        run: pnpm --dir artifacts/web-app build
+
+      - name: Deploy API to Render
+        if: ${{ secrets.RENDER_API_KEY != '' && secrets.RENDER_SERVICE_ID != '' }}
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+          wait-for-status: true
+
+      - name: Deploy web app to Netlify
+        if: ${{ secrets.NETLIFY_AUTH_TOKEN != '' && secrets.NETLIFY_SITE_ID != '' }}
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: artifacts/web-app/dist
+          production-deploy: true
+          deploy-message: Deploy from GitHub Actions
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          netlify-auth-token: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          netlify-site-id: ${{ secrets.NETLIFY_SITE_ID }}

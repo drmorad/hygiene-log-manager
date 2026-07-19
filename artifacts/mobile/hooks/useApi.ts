@@ -1,26 +1,25 @@
 import { useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 /**
  * Returns the API base URL.
  *
- * On web we use a relative URL ("/api-server/api") so the browser makes a
- * same-origin request.  Same-origin requests carry no Origin header, which
- * lets Replit's proxy route /api-server correctly to the API server (port 8080)
- * without being intercepted by the Expo dev-server's CORS middleware.
+ * Resolution order (first match wins):
+ *   1. EXPO_PUBLIC_API_URL env var (injected at EAS build time, or set in .env)
+ *   2. expo-constants `extra.apiUrl` (baked into app.json for built apps)
+ *   3. Dev fallback "/api-server/api" (Replit proxy / local dev server)
  *
- * On native (Expo Go / dev build) we need the absolute URL because there is
- * no shared proxy — EXPO_PUBLIC_DOMAIN is the Replit dev domain baked in at
- * Metro bundle time.
+ * All API routes are served under /api, so we append it here.
  */
 export function getApiBase(): string {
-  if (Platform.OS === 'web') {
-    return '/api-server/api';
+  const envUrl =
+    process.env.EXPO_PUBLIC_API_URL ||
+    (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl;
+  if (envUrl) {
+    return `${envUrl.replace(/\/$/, '')}/api`;
   }
-  // Native: use baked-in env var
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain}/api-server/api`;
+  // Dev fallback (Replit proxy / local dev server)
   return '/api-server/api';
 }
 

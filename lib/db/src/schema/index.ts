@@ -9,6 +9,8 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   role: text('role').notNull(), // 'director' | 'manager'
   allowedHotels: jsonb('allowed_hotels').$type<string[]>().notNull().default([]),
+  passwordChangeRequired: boolean('password_change_required').notNull().default(false),
+  lastPasswordChangedAt: timestamp('last_password_changed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

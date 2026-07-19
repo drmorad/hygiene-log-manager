@@ -3,9 +3,14 @@ import { Router } from 'express';
 import { db } from '@workspace/db';
 import { users } from '@workspace/db/schema';
 import { eq, ne } from 'drizzle-orm';
-import { requireAuth, requireDirector, hashPassword, verifyPassword } from '../lib/auth';
+import { requireAuth, requireDirector, hashPassword, verifyPassword, getFallbackSession, updateFallbackDirectorPassword } from '../lib/auth';
+import { fallbackManagers, type ManagerRecord } from '../lib/fallback-manager-store';
 
 const HOTELS = ['Rewaya Majestic', 'Rewaya Inn', 'Rewaya Luxury'];
+
+function shouldUseFallbackStorage() {
+  return !process.env.DATABASE_URL || process.env.NODE_ENV !== 'production';
+}
 
 const router = Router();
 router.use(requireAuth);
@@ -13,6 +18,11 @@ router.use(requireAuth);
 // GET /api/users — list all managers (director only)
 router.get('/', requireDirector, async (_req, res, next) => {
   try {
+    if (shouldUseFallbackStorage()) {
+      res.json(fallbackManagers.list());
+      return;
+    }
+
     const all = await db
       .select({ id: users.id, username: users.username, name: users.name, role: users.role, allowedHotels: users.allowedHotels, createdAt: users.createdAt })
       .from(users)
@@ -37,9 +47,25 @@ router.post('/', requireDirector, async (req, res, next) => {
     }
 
     const id = crypto.randomUUID();
+    const normalizedUsername = username.toLowerCase().trim();
+
+    if (shouldUseFallbackStorage()) {
+      const created: ManagerRecord = {
+        id,
+        username: normalizedUsername,
+        name: name.trim(),
+        role: 'manager',
+        allowedHotels,
+        createdAt: new Date().toISOString(),
+      };
+      fallbackManagers.add(created);
+      res.status(201).json(created);
+      return;
+    }
+
     await db.insert(users).values({
       id,
-      username: username.toLowerCase().trim(),
+      username: normalizedUsername,
       passwordHash: hashPassword(password),
       name: name.trim(),
       role: 'manager',
@@ -84,14 +110,31 @@ router.patch('/:id', requireDirector, async (req, res, next) => {
 router.patch('/me/password', async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
+    if (!newPassword || newPassword.length < 6) {
+      res.status(400).json({ error: 'New password must be at least 6 characters' }); return;
+    }
+
+    if (req.user?.id === 'fallback-director') {
+      const fallbackUser = getFallbackSession(req.headers.authorization!.slice(7));
+      if (!fallbackUser) {
+        res.status(401).json({ error: 'Session expired' }); return;
+      }
+      if (!updateFallbackDirectorPassword(currentPassword, newPassword)) {
+        res.status(401).json({ error: 'Current password incorrect' }); return;
+      }
+      res.json({ ok: true });
+      return;
+    }
+
     const [user] = await db.select().from(users).where(eq(users.id, req.user!.id)).limit(1);
     if (!user || !verifyPassword(currentPassword, user.passwordHash)) {
       res.status(401).json({ error: 'Current password incorrect' }); return;
     }
-    if (!newPassword || newPassword.length < 6) {
-      res.status(400).json({ error: 'New password must be at least 6 characters' }); return;
-    }
-    await db.update(users).set({ passwordHash: hashPassword(newPassword) }).where(eq(users.id, user.id));
+    await db.update(users).set({
+      passwordHash: hashPassword(newPassword),
+      passwordChangeRequired: false,
+      lastPasswordChangedAt: new Date(),
+    }).where(eq(users.id, user.id));
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -99,6 +142,12 @@ router.patch('/me/password', async (req, res, next) => {
 // DELETE /api/users/:id (director only)
 router.delete('/:id', requireDirector, async (req, res, next) => {
   try {
+    if (shouldUseFallbackStorage()) {
+      fallbackManagers.remove(req.params.id);
+      res.json({ ok: true });
+      return;
+    }
+
     await db.delete(users).where(eq(users.id, req.params.id));
     res.json({ ok: true });
   } catch (err) { next(err); }

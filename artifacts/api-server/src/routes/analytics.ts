@@ -25,6 +25,80 @@ function calcCompliance(logs: { status: string }[]) {
   return Math.round((pass / logs.length) * 100);
 }
 
+interface ReceivedItem { name: string; quantity: string; unit: string; batchNumber?: string; }
+interface ReceivedLog { id: string; hotelId: string; date: string; supplier: string; items: ReceivedItem[]; status: string; }
+
+function isKgUnit(unit: string): boolean {
+  const u = unit.toLowerCase().trim();
+  return u === 'kg' || u === 'kilogram' || u === 'kilograms' || u === 'kilo' || u === 'g' || u === 'gram' || u === 'grams';
+}
+
+function parseKg(quantity: string, unit: string): number {
+  const u = unit.toLowerCase().trim();
+  const q = parseFloat(quantity);
+  if (Number.isNaN(q)) return 0;
+  if (u === 'g' || u === 'gram' || u === 'grams') return q / 1000;
+  return q;
+}
+
+function totalKgForLogs(logs: ReceivedLog[]): number {
+  let total = 0;
+  for (const log of logs) {
+    for (const item of (log.items || [])) {
+      if (isKgUnit(item.unit)) total += parseKg(item.quantity, item.unit);
+    }
+  }
+  return Math.round(total * 100) / 100;
+}
+
+function supplierBreakdown(logs: ReceivedLog[]) {
+  const map: Record<string, { totalKg: number; deliveries: number }> = {};
+  for (const log of logs) {
+    const key = log.supplier || 'Unknown';
+    if (!map[key]) map[key] = { totalKg: 0, deliveries: 0 };
+    const entry = map[key];
+    entry.deliveries++;
+    for (const item of (log.items || [])) {
+      if (isKgUnit(item.unit)) entry.totalKg += parseKg(item.quantity, item.unit);
+    }
+  }
+  return Object.entries(map)
+    .map(([supplier, data]) => ({
+      supplier,
+      totalKg: Math.round(data.totalKg * 100) / 100,
+      deliveries: data.deliveries,
+    }))
+    .sort((a, b) => b.totalKg - a.totalKg);
+}
+
+function itemBreakdown(logs: ReceivedLog[]) {
+  const map: Record<string, number> = {};
+  for (const log of logs) {
+    for (const item of (log.items || [])) {
+      if (!isKgUnit(item.unit)) continue;
+      const key = item.name || 'Unknown';
+      map[key] = (map[key] || 0) + parseKg(item.quantity, item.unit);
+    }
+  }
+  return Object.entries(map)
+    .map(([item, totalKg]) => ({ item, totalKg: Math.round(totalKg * 100) / 100 }))
+    .sort((a, b) => b.totalKg - a.totalKg)
+    .slice(0, 10);
+}
+
+function buildReceivingStats(logs: ReceivedLog[], today: string) {
+  const week = logs;
+  const todayLogs = logs.filter(l => l.date === today);
+  return {
+    totalKgToday: totalKgForLogs(todayLogs),
+    totalKgWeek: totalKgForLogs(week),
+    billsToday: todayLogs.length,
+    billsWeek: week.length,
+    bySupplier: supplierBreakdown(week),
+    byItem: itemBreakdown(week),
+  };
+}
+
 // GET /api/analytics — full director overview across all hotels
 router.get('/', async (_req, res, next) => {
   try {
@@ -47,6 +121,7 @@ router.get('/', async (_req, res, next) => {
     const hotelStats = HOTELS.map(hotel => {
       const hLogs = allLogs.filter(l => l.hotelId === hotel);
       const hToday = todayLogs.filter(l => l.hotelId === hotel);
+      const hReceived = rAll.filter(l => l.hotelId === hotel) as unknown as ReceivedLog[];
       const violations = hLogs.filter(l => l.status === 'fail');
       const cautions = hLogs.filter(l => l.status === 'caution');
 
@@ -99,10 +174,12 @@ router.get('/', async (_req, res, next) => {
           item: (v as any).item || (v as any).itemName || (v as any).supplier || (v as any).items || '',
           correctiveAction: (v as any).correctiveAction || '',
         })),
+        receiving: buildReceivingStats(hReceived, today),
       };
     });
 
     // Global totals
+    const globalReceived = rAll as unknown as ReceivedLog[];
     const globalStats = {
       totalToday: todayLogs.length,
       totalWeek: allLogs.length,
@@ -111,6 +188,7 @@ router.get('/', async (_req, res, next) => {
       violationsToday: todayLogs.filter(l => l.status === 'fail').length,
       cautionsToday: todayLogs.filter(l => l.status === 'caution').length,
       missingHotels: hotelStats.filter(h => h.totalToday === 0).map(h => h.hotel),
+      receiving: buildReceivingStats(globalReceived, today),
     };
 
     // Manager activity today
