@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.expo
+**/.next
+**/build
+node_modules
+.git
+**/*.log
+artifacts/mobile
+artifacts/mockup-sandbox
+lib/api-client-react
+lib/api-spec

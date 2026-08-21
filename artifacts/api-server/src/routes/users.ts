@@ -3,13 +3,13 @@ import { Router } from 'express';
 import { db } from '@workspace/db';
 import { users } from '@workspace/db/schema';
 import { eq, ne } from 'drizzle-orm';
-import { requireAuth, requireDirector, hashPassword, verifyPassword, getFallbackSession, updateFallbackDirectorPassword } from '../lib/auth';
+import { requireAuth, requireDirector, hashPassword, verifyPassword, getFallbackSession, updateFallbackDirectorPassword, isFallbackMode } from '../lib/auth';
 import { fallbackManagers, type ManagerRecord } from '../lib/fallback-manager-store';
 
 const HOTELS = ['Rewaya Majestic', 'Rewaya Inn', 'Rewaya Luxury'];
 
 function shouldUseFallbackStorage() {
-  return !process.env.DATABASE_URL || process.env.NODE_ENV !== 'production';
+  return isFallbackMode();
 }
 
 const router = Router();
@@ -101,7 +101,7 @@ router.patch('/:id', requireDirector, async (req, res, next) => {
     }
     if (password) updates.passwordHash = hashPassword(password);
 
-    await db.update(users).set(updates).where(eq(users.id, req.params.id));
+    await db.update(users).set(updates).where(eq(users.id, String(req.params.id)));
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -143,12 +143,12 @@ router.patch('/me/password', async (req, res, next) => {
 router.delete('/:id', requireDirector, async (req, res, next) => {
   try {
     if (shouldUseFallbackStorage()) {
-      fallbackManagers.remove(req.params.id);
+      fallbackManagers.remove(String(req.params.id));
       res.json({ ok: true });
       return;
     }
 
-    await db.delete(users).where(eq(users.id, req.params.id));
+    await db.delete(users).where(eq(users.id, String(req.params.id)));
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

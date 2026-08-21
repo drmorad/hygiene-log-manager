@@ -143,6 +143,23 @@ pnpm exec eas submit --platform all
 - **Username:** `director`
 - **Password:** `Rewaya@2024`
 
+---
+
+## 6. Local / self-hosted deploy (Docker)
+
+For a single-machine deploy with no third-party accounts, use the included
+Dockerfiles + `docker-compose.yml` (API + Postgres). Migrations run automatically
+on container start.
+
+```bash
+docker compose up --build
+# API:      http://localhost:3000/api/healthz
+# (serve the web build separately, e.g. Netlify, or `pnpm --filter @workspace/web-app run preview`)
+```
+
+The API image auto-runs `pnpm --filter @workspace/db run push` on boot, so the
+schema is created on first launch.
+
 You will be forced to change the password on first login. Use the Director
 dashboard (web or mobile) to create manager accounts and assign hotels.
 

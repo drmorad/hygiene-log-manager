@@ -7,7 +7,7 @@ import analyticsRouter from './analytics';
 
 const router = Router();
 
-router.use('/healthz', healthRouter);
+router.use('/', healthRouter);
 router.use('/auth', authRouter);
 router.use('/users', usersRouter);
 router.use('/logs', logsRouter);

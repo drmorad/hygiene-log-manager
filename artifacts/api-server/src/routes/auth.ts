@@ -11,6 +11,7 @@ import {
   generateToken,
   requireAuth,
   verifyPassword,
+  isFallbackMode,
 } from '../lib/auth';
 
 const router = Router();
@@ -24,7 +25,7 @@ router.post('/login', async (req, res, next) => {
       return;
     }
 
-    const fallbackUser = getFallbackDirectorUser(username, password);
+    const fallbackUser = isFallbackMode() ? getFallbackDirectorUser(username, password) : null;
     if (fallbackUser) {
       const token = createFallbackSession(fallbackUser);
       res.json({ token, user: fallbackUser });

@@ -13,9 +13,27 @@ export function hashPassword(password: string): string {
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(':');
-  const candidate = crypto.scryptSync(password, salt, 64).toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(candidate, 'hex'));
+  try {
+    const [salt, hash] = stored.split(':');
+    if (!salt || !hash) return false;
+    const candidate = crypto.scryptSync(password, salt, 64).toString('hex');
+    const expected = Buffer.from(hash, 'hex');
+    const actual = Buffer.from(candidate, 'hex');
+    if (expected.length !== actual.length) return false;
+    return crypto.timingSafeEqual(expected, actual);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The in-memory fallback store (director + managers) is only used when there is
+ * no production database configured. In production the canonical source of truth
+ * is Postgres, so the fallback director credential must NEVER authenticate —
+ * otherwise the default `director` / `Rewaya@2024` would bypass the real account.
+ */
+export function isFallbackMode(): boolean {
+  return !process.env.DATABASE_URL || process.env.NODE_ENV !== 'production';
 }
 
 // ─── Token generation ─────────────────────────────────────────────────────────
@@ -56,6 +74,7 @@ fallbackSessions.set(builtinDirectorToken, {
 });
 
 export function getFallbackDirectorUser(username: string, password: string): AuthUser | null {
+  if (!isFallbackMode()) return null;
   const normalizedUsername = username.toLowerCase().trim();
   if (normalizedUsername !== 'director' || password !== fallbackDirectorPassword) return null;
 

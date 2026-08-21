@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { pgTable, text, real, integer, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
 
 // ─── Users & Sessions ─────────────────────────────────────────────────────────
@@ -25,7 +26,7 @@ export const sessions = pgTable('sessions', {
 // ─── Log Tables ───────────────────────────────────────────────────────────────
 
 export const buffetLogs = pgTable('buffet_logs', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
   hotelId: text('hotel_id').notNull(),
   managerId: text('manager_id').notNull(),
   managerName: text('manager_name').notNull(),
@@ -43,7 +44,7 @@ export const buffetLogs = pgTable('buffet_logs', {
 });
 
 export const thawingLogs = pgTable('thawing_logs', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
   hotelId: text('hotel_id').notNull(),
   managerId: text('manager_id').notNull(),
   managerName: text('manager_name').notNull(),
@@ -64,7 +65,7 @@ export const thawingLogs = pgTable('thawing_logs', {
 });
 
 export const receivedLogs = pgTable('received_logs', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
   hotelId: text('hotel_id').notNull(),
   managerId: text('manager_id').notNull(),
   managerName: text('manager_name').notNull(),
@@ -80,7 +81,7 @@ export const receivedLogs = pgTable('received_logs', {
 });
 
 export const disinfectionLogs = pgTable('disinfection_logs', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
   hotelId: text('hotel_id').notNull(),
   managerId: text('manager_id').notNull(),
   managerName: text('manager_name').notNull(),
