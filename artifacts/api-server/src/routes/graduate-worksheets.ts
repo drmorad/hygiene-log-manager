@@ -3,9 +3,9 @@ import { Router } from 'express';
 import { db } from '@workspace/db';
 import { graduateWorksheets } from '@workspace/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { requireAuth } from '../lib/auth';
+import { requireAuth, isFallbackMode } from '../lib/auth';
 import { HttpError, assert } from '../lib/errors';
-import { isFallbackMode, getFallbackStore } from '../lib/fallback-log-store';
+import { getFallbackStore } from '../lib/fallback-log-store';
 
 const router = Router();
 router.use(requireAuth);
