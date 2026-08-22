@@ -189,6 +189,95 @@ function AddManagerModal({ visible, onClose, onCreated }: { visible: boolean; on
   );
 }
 
+// ─── Edit Manager Modal (rotation / reassign hotels) ─────────────────────────
+
+function EditManagerModal({ visible, manager, onClose, onSaved }: { visible: boolean; manager: AnalyticsData['managers'][0] | null; onClose: () => void; onSaved: () => void }) {
+  const colors = useColors();
+  const { patch } = useApi();
+  const [name, setName] = useState('');
+  const [selectedHotels, setSelectedHotels] = useState<Hotel[]>([...HOTELS]);
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (manager) {
+      setName(manager.name);
+      setSelectedHotels((manager.allowedHotels as Hotel[])?.length ? (manager.allowedHotels as Hotel[]) : [...HOTELS]);
+      setPassword('');
+      setError('');
+    }
+  }, [manager, visible]);
+
+  const toggleHotel = (h: Hotel) => {
+    setSelectedHotels(prev => prev.includes(h) ? prev.filter(x => x !== h) : [...prev, h]);
+  };
+
+  const handleSave = async () => {
+    if (!manager) return;
+    if (!name.trim()) { setError('Name is required'); return; }
+    if (!selectedHotels.length) { setError('Select at least one hotel'); return; }
+    setLoading(true); setError('');
+    try {
+      await patch(`/users/${manager.id}`, {
+        name: name.trim(),
+        allowedHotels: selectedHotels,
+        ...(password ? { password } : {}),
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onSaved();
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="formSheet">
+      <ScrollView style={[sty.addModal, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
+        <View style={[sty.addModalHeader, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={onClose}><Feather name="x" size={22} color={colors.mutedForeground} /></TouchableOpacity>
+          <Text style={[sty.addModalTitle, { color: colors.text }]}>Edit Manager</Text>
+          <View style={{ width: 22 }} />
+        </View>
+
+        {!!error && (
+          <View style={[sty.errBox, { backgroundColor: '#FEF3F2', borderColor: '#FCA5A5' }]}>
+            <Text style={{ color: '#DC2626', fontFamily: 'Inter_400Regular', fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
+
+        <Text style={[sty.fieldLabel, { color: colors.mutedForeground }]}>FULL NAME</Text>
+        <TextInput style={[sty.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.card }]} value={name} onChangeText={setName} placeholder="Manager name" placeholderTextColor={colors.mutedForeground} />
+
+        <Text style={[sty.fieldLabel, { color: colors.mutedForeground }]}>HOTEL ACCESS (rotation)</Text>
+        <Text style={[sty.fieldHint, { color: colors.mutedForeground }]}>Toggle hotels this manager is wired to. Rotations are a tap away.</Text>
+        <View style={sty.hotelChips}>
+          {HOTELS.map(h => {
+            const sel = selectedHotels.includes(h);
+            return (
+              <TouchableOpacity key={h} style={[sty.hotelChip, { borderColor: sel ? '#1A5276' : colors.border, backgroundColor: sel ? '#EBF5FB' : colors.card }]} onPress={() => toggleHotel(h)}>
+                <Feather name={sel ? 'check-square' : 'square'} size={14} color={sel ? '#1A5276' : colors.mutedForeground} />
+                <Text style={[sty.hotelChipText, { color: sel ? '#1A5276' : colors.mutedForeground }]}>{h}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={[sty.fieldLabel, { color: colors.mutedForeground }]}>RESET PASSWORD (optional)</Text>
+        <TextInput style={[sty.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.card }]} value={password} onChangeText={setPassword} placeholder="Leave blank to keep current" placeholderTextColor={colors.mutedForeground} secureTextEntry />
+
+        <TouchableOpacity style={[sty.createBtn, { backgroundColor: '#1A5276' }, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : (
+            <>
+              <Feather name="save" size={16} color="#fff" />
+              <Text style={sty.createBtnText}>Save Changes</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </Modal>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 const HOTEL_COLORS: Record<string, string> = {
@@ -207,17 +296,28 @@ export default function DirectorScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState<string>('All');
-  const [activeSection, setActiveSection] = useState<'overview' | 'team' | 'violations'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'team' | 'violations' | 'worksheets'>('overview');
   const [addManagerOpen, setAddManagerOpen] = useState(false);
+  const [editManagerOpen, setEditManagerOpen] = useState(false);
+  const [editingManager, setEditingManager] = useState<AnalyticsData['managers'][0] | null>(null);
+
+  const openEditManager = (m: AnalyticsData['managers'][0]) => {
+    setEditingManager(m);
+    setEditManagerOpen(true);
+  };
+  const [worksheets, setWorksheets] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
       const d = await get<AnalyticsData>('/analytics');
       setData(d);
+      const wUrl = selectedHotel === 'All' ? '/graduate-worksheets' : `/graduate-worksheets?hotel=${encodeURIComponent(selectedHotel)}`;
+      const w = await get<any[]>(wUrl);
+      setWorksheets(w);
     } catch (e) {
       // keep old data if refresh fails
     }
-  }, [get]);
+  }, [get, selectedHotel]);
 
   useEffect(() => { fetchData().finally(() => setLoading(false)); }, [fetchData]);
 
@@ -244,6 +344,7 @@ export default function DirectorScreen() {
   const displayedHotels = data?.hotels.filter(h => selectedHotel === 'All' || h.hotel === selectedHotel) ?? [];
   const globalViolations = data?.hotels.flatMap(h => h.recentViolations) ?? [];
   const filteredViolations = selectedHotel === 'All' ? globalViolations : globalViolations.filter(v => v.hotel === selectedHotel);
+  const displayedWorksheets = worksheets.filter(w => selectedHotel === 'All' || w.hotelId === selectedHotel);
 
   if (loading) return (
     <View style={[sty.loadWrap, { backgroundColor: colors.background }]}>
@@ -303,10 +404,10 @@ export default function DirectorScreen() {
 
         {/* Section tabs */}
         <View style={sty.sectionTabs}>
-          {(['overview', 'violations', 'team'] as const).map(s => (
+          {(['overview', 'violations', 'team', 'worksheets'] as const).map(s => (
             <TouchableOpacity key={s} style={[sty.sectionTab, activeSection === s && sty.sectionTabActive]} onPress={() => setActiveSection(s)}>
               <Text style={[sty.sectionTabText, activeSection === s && sty.sectionTabTextActive]}>
-                {s === 'overview' ? 'Overview' : s === 'violations' ? 'Violations' : 'Team'}
+                {s === 'overview' ? 'Overview' : s === 'violations' ? 'Violations' : s === 'team' ? 'Team' : 'Worksheets'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -476,6 +577,9 @@ export default function DirectorScreen() {
                       <Text style={[sty.activityCountNum, { color: todayEntries > 0 ? '#1D4ED8' : colors.mutedForeground }]}>{todayEntries}</Text>
                       <Text style={[sty.activityCountLabel, { color: colors.mutedForeground }]}>today</Text>
                     </View>
+                    <TouchableOpacity style={[sty.editManagerBtn, { backgroundColor: '#EAF0F6' }]} onPress={() => openEditManager(m)}>
+                      <Feather name="edit-2" size={14} color="#1A5276" />
+                    </TouchableOpacity>
                     <TouchableOpacity style={[sty.deleteManagerBtn, { backgroundColor: '#FEF3F2' }]} onPress={() => handleDeleteManager(m)}>
                       <Feather name="trash-2" size={14} color="#DC2626" />
                     </TouchableOpacity>
@@ -494,12 +598,90 @@ export default function DirectorScreen() {
             })}
           </View>
         )}
+
+        {/* ── WORKSHEETS ───────────────────────────────────────────────── */}
+        {activeSection === 'worksheets' && (
+          <View style={sty.section}>
+            {displayedWorksheets.length === 0 ? (
+              <View style={[sty.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Feather name="clipboard" size={32} color={colors.border} />
+                <Text style={[sty.emptyStateTitle, { color: colors.text }]}>No Worksheets Yet</Text>
+                <Text style={[sty.emptyStateSub, { color: colors.mutedForeground }]}>Graduate submissions appear here for Director review</Text>
+              </View>
+            ) : displayedWorksheets.map(w => {
+              const nc = (w.nonConformities || []);
+              const suspicious = nc.length === 0 && !w.auditFinding;
+              const hotelColor = HOTEL_COLORS[w.hotelId] ?? '#1A5276';
+              return (
+                <View key={w.id} style={[sty.wsCard, { backgroundColor: colors.card, borderColor: suspicious ? '#FCD34D' : colors.border }]}>
+                  <View style={sty.wsTop}>
+                    <View style={[sty.wsAvatar, { backgroundColor: hotelColor + '18' }]}>
+                      <Text style={[sty.wsAvatarText, { color: hotelColor }]}>{(w.managerName || '?').charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[sty.wsName, { color: colors.text }]}>{w.managerName || 'Unknown'}</Text>
+                      <Text style={[sty.wsSub, { color: colors.mutedForeground }]}>{w.date} · {w.hotelId}</Text>
+                    </View>
+                    {suspicious && (
+                      <View style={[sty.wsFlag, { backgroundColor: '#FEF3C7' }]}>
+                        <Feather name="alert-triangle" size={11} color="#D97706" />
+                        <Text style={[sty.wsFlagText, { color: '#D97706' }]}>VERIFY</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={[sty.wsLabel, { color: colors.mutedForeground }]}>RISK TODAY</Text>
+                  <Text style={[sty.wsValue, { color: colors.text }]}>{w.standupRisk || '—'}</Text>
+
+                  <View style={sty.wsGrid}>
+                    <View style={sty.wsStat}>
+                      <Text style={[sty.wsStatNum, { color: nc.length > 0 ? '#DC2626' : colors.text }]}>{nc.length}</Text>
+                      <Text style={[sty.wsStatLabel, { color: colors.mutedForeground }]}>Non-conf.</Text>
+                    </View>
+                    <View style={sty.wsStat}>
+                      <Text style={[sty.wsStatNum, { color: colors.text }]}>{w.auditZone || '—'}</Text>
+                      <Text style={[sty.wsStatLabel, { color: colors.mutedForeground }]}>Audit zone</Text>
+                    </View>
+                    <View style={sty.wsStat}>
+                      <Text style={[sty.wsStatNum, { color: w.selfHonest ? '#16A34A' : '#DC2626' }]}>{w.selfHonest ? '✓' : w.selfHonest === false ? '✗' : '—'}</Text>
+                      <Text style={[sty.wsStatLabel, { color: colors.mutedForeground }]}>Honest</Text>
+                    </View>
+                  </View>
+
+                  {nc.length > 0 && (
+                    <View style={[sty.wsNcBox, { backgroundColor: '#FEF3F2', borderColor: '#FCA5A5' }]}>
+                      {nc.slice(0, 3).map((n: any, i: number) => (
+                        <Text key={i} style={{ color: '#DC2626', fontFamily: 'Inter_400Regular', fontSize: 12 }}>
+                          • {n.location || '—'}: {n.violation || '—'}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+
+                  {!!w.mentorQuestion && (
+                    <View style={[sty.wsMentor, { backgroundColor: colors.secondary ?? '#F1F5F9', borderColor: hotelColor + '30' }]}>
+                      <Feather name="help-circle" size={12} color={hotelColor} />
+                      <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 12, flex: 1 }}>Q: {w.mentorQuestion}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
       <AddManagerModal
         visible={addManagerOpen}
         onClose={() => setAddManagerOpen(false)}
         onCreated={() => { setAddManagerOpen(false); fetchData(); }}
+      />
+
+      <EditManagerModal
+        visible={editManagerOpen}
+        manager={editingManager}
+        onClose={() => setEditManagerOpen(false)}
+        onSaved={() => { setEditManagerOpen(false); fetchData(); }}
       />
     </View>
   );
@@ -593,6 +775,7 @@ const sty = StyleSheet.create({
   activityCountNum: { fontFamily: 'Inter_700Bold', fontSize: 18 },
   activityCountLabel: { fontFamily: 'Inter_400Regular', fontSize: 9 },
   deleteManagerBtn: { borderRadius: 8, padding: 8 },
+  editManagerBtn: { borderRadius: 8, padding: 8 },
   hotelAccessRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   hotelAccessChip: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
   hotelAccessChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
@@ -609,6 +792,23 @@ const sty = StyleSheet.create({
   hotelChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
   createBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 15, marginTop: 20, marginBottom: 30 },
   createBtnText: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
+  // Worksheet cards
+  wsCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 8 },
+  wsTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  wsAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  wsAvatarText: { fontFamily: 'Inter_700Bold', fontSize: 16 },
+  wsName: { fontFamily: 'Inter_700Bold', fontSize: 15 },
+  wsSub: { fontFamily: 'Inter_400Regular', fontSize: 11 },
+  wsFlag: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  wsFlagText: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 0.5 },
+  wsLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9, letterSpacing: 1, marginTop: 4 },
+  wsValue: { fontFamily: 'Inter_500Medium', fontSize: 13 },
+  wsGrid: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  wsStat: { flex: 1, borderRadius: 10, borderWidth: 1, borderColor: colors.border, padding: 10, alignItems: 'center', gap: 3 },
+  wsStatNum: { fontFamily: 'Inter_700Bold', fontSize: 16 },
+  wsStatLabel: { fontFamily: 'Inter_400Regular', fontSize: 9, textAlign: 'center' },
+  wsNcBox: { borderRadius: 8, borderWidth: 1, padding: 10, gap: 4 },
+  wsMentor: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 8, borderWidth: 1, padding: 10 },
   // Stat card
   statCard: { borderRadius: 12, borderWidth: 1, padding: 14, alignItems: 'center', gap: 6, flex: 1 },
   statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },

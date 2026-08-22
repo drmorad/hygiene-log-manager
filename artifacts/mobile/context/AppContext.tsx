@@ -90,6 +90,37 @@ export interface Settings {
   defaultMonitor: string;
 }
 
+export interface NonConformityItem {
+  location: string;
+  violation: string;
+  correctiveAction: string;
+}
+
+export interface WorksheetEntry {
+  id: string;
+  hotelId: string;
+  managerId: string;
+  managerName: string;
+  date: string;
+  standupRisk?: string;
+  standupFixed?: string;
+  standupVip?: string;
+  auditZone?: string;
+  auditTimeInOut?: string;
+  auditStandard?: string;
+  auditFinding?: string;
+  photoRef?: string;
+  nonConformities?: NonConformityItem[];
+  mentorConcept?: string;
+  mentorChange?: string;
+  mentorQuestion?: string;
+  selfLogsOnTime?: boolean;
+  selfAuditHonest?: boolean;
+  selfZonesCovered?: boolean;
+  selfPhotosAttached?: boolean;
+  signature?: string;
+}
+
 // ─── Context ─────────────────────────────────────────────────────────────────
 
 interface AppContextType {
@@ -116,6 +147,10 @@ interface AppContextType {
   addMenuItem: (item: MenuItem) => void;
   deleteMenuItem: (id: string) => void;
   updateMenuItem: (item: MenuItem) => void;
+
+  worksheets: WorksheetEntry[];
+  submitWorksheet: (entry: WorksheetEntry) => void;
+  deleteWorksheet: (id: string) => void;
   syncFromServer: () => Promise<void>;
 }
 
@@ -128,6 +163,7 @@ const KEYS = {
   received: '@fsm_received',
   disinfection: '@fsm_disinfection',
   menuItems: '@fsm_menu_items',
+  worksheets: '@fsm_worksheets',
 };
 
 // ─── Default Menu Library ─────────────────────────────────────────────────────
@@ -196,17 +232,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [receivedLogs, setReceivedLogs] = useState<ReceivedEntry[]>([]);
   const [disinfectionLogs, setDisinfectionLogs] = useState<DisinfectionEntry[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(DEFAULT_MENU_ITEMS);
+  const [worksheets, setWorksheets] = useState<WorksheetEntry[]>([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const [s, b, t, r, d, m] = await Promise.all([
+        const [s, b, t, r, d, m, w] = await Promise.all([
           AsyncStorage.getItem(KEYS.settings),
           AsyncStorage.getItem(KEYS.buffet),
           AsyncStorage.getItem(KEYS.thawing),
           AsyncStorage.getItem(KEYS.received),
           AsyncStorage.getItem(KEYS.disinfection),
           AsyncStorage.getItem(KEYS.menuItems),
+          AsyncStorage.getItem(KEYS.worksheets),
         ]);
         if (s) setSettings(JSON.parse(s));
         if (b) setBuffetLogs(JSON.parse(b));
@@ -214,6 +252,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (r) setReceivedLogs(JSON.parse(r));
         if (d) setDisinfectionLogs(JSON.parse(d));
         if (m) setMenuItems(JSON.parse(m));
+        if (w) setWorksheets(JSON.parse(w));
       } catch (_) {}
     })();
   }, []);
@@ -235,6 +274,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       { key: 'thawing', setter: setThawingLogs, remote: 'thawing' },
       { key: 'received', setter: setReceivedLogs, remote: 'received' },
       { key: 'disinfection', setter: setDisinfectionLogs, remote: 'disinfection' },
+      { key: 'worksheets', setter: setWorksheets, remote: 'graduate-worksheets' },
     ];
     await Promise.all(
       types.map(async ({ setter, remote }) => {
@@ -355,6 +395,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     apiDelete(`/logs/disinfection/${id}`);
   };
 
+  const submitWorksheet = (entry: WorksheetEntry) => {
+    setWorksheets(prev => { const next = [entry, ...prev.filter(e => e.id !== entry.id)]; save(KEYS.worksheets, next); return next; });
+    apiPost('/graduate-worksheets', {
+      id: entry.id,
+      hotelId: entry.hotelId,
+      date: entry.date,
+      standupRisk: entry.standupRisk,
+      standupFixed: entry.standupFixed,
+      standupVip: entry.standupVip,
+      auditZone: entry.auditZone,
+      auditTimeInOut: entry.auditTimeInOut,
+      auditStandard: entry.auditStandard,
+      auditFinding: entry.auditFinding,
+      photoRef: entry.photoRef,
+      nonConformities: entry.nonConformities ?? [],
+      mentorConcept: entry.mentorConcept,
+      mentorChange: entry.mentorChange,
+      mentorQuestion: entry.mentorQuestion,
+      selfLogsOnTime: entry.selfLogsOnTime,
+      selfAuditHonest: entry.selfAuditHonest,
+      selfZonesCovered: entry.selfZonesCovered,
+      selfPhotosAttached: entry.selfPhotosAttached,
+      signature: entry.signature,
+      managerId: authUser?.id ?? '',
+      managerName: authUser?.name ?? '',
+    });
+  };
+  const deleteWorksheet = (id: string) => {
+    setWorksheets(prev => { const next = prev.filter(e => e.id !== id); save(KEYS.worksheets, next); return next; });
+    apiDelete(`/graduate-worksheets/${id}`);
+  };
+
   const addMenuItem = (item: MenuItem) => {
     setMenuItems(prev => {
       const next = [...prev, item];
@@ -385,6 +457,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       receivedLogs, addReceivedEntry, deleteReceivedEntry,
       disinfectionLogs, addDisinfectionEntry, deleteDisinfectionEntry,
       menuItems, addMenuItem, deleteMenuItem, updateMenuItem,
+      worksheets, submitWorksheet, deleteWorksheet,
       syncFromServer,
     }}>
       {children}

@@ -32,6 +32,7 @@ export const fallbackBuffet = makeStore();
 export const fallbackThawing = makeStore();
 export const fallbackReceived = makeStore();
 export const fallbackDisinfection = makeStore();
+export const fallbackWorksheets = makeStore();
 
 export function getFallbackStore(type: string) {
   switch (type) {
@@ -43,6 +44,8 @@ export function getFallbackStore(type: string) {
       return fallbackReceived;
     case "disinfection":
       return fallbackDisinfection;
+    case "worksheets":
+      return fallbackWorksheets;
     default:
       return null;
   }

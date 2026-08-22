@@ -99,3 +99,43 @@ export const disinfectionLogs = pgTable('disinfection_logs', {
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── Fresh-Graduate Daily Follow-Up Worksheet ─────────────────────────────
+// Structured daily worksheet for the trainee: stand-up Q&A, audit target,
+// non-conformities, director mentorship notes, and an end-of-day self-score.
+export interface NonConformity {
+  location: string;
+  violation: string;
+  correctiveAction: string;
+}
+
+export const graduateWorksheets = pgTable('graduate_worksheets', {
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+  hotelId: text('hotel_id').notNull(),
+  managerId: text('manager_id').notNull(),
+  managerName: text('manager_name').notNull(),
+  date: text('date').notNull(),
+  // A. Morning stand-up
+  standupRisk: text('standup_risk'),
+  standupFixed: text('standup_fixed'),
+  standupVip: text('standup_vip'),
+  // B. Today's audit target
+  auditZone: text('audit_zone'),
+  auditTimeInOut: text('audit_time_in_out'),
+  auditStandard: text('audit_standard'),
+  auditFinding: text('audit_finding'),
+  photoRef: text('photo_ref'), // WhatsApp/ref of evidence sent to Director
+  // C. Non-conformities found
+  nonConformities: jsonb('non_conformities').$type<NonConformity[]>().notNull().default([]),
+  // D. Director mentorship notes
+  mentorConcept: text('mentor_concept'),
+  mentorChange: text('mentor_change'),
+  mentorQuestion: text('mentor_question'),
+  // E. End-of-day self-score
+  selfLogsOnTime: boolean('self_logs_on_time'),
+  selfAuditHonest: boolean('self_audit_honest'),
+  selfZonesCovered: boolean('self_zones_covered'),
+  selfPhotosAttached: boolean('self_photos_attached'),
+  signature: text('signature'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

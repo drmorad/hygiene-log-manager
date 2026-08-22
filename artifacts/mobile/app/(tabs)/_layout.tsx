@@ -41,6 +41,12 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'drop', selected: 'drop.fill' }} />
         <Label>Sanitation</Label>
       </NativeTabs.Trigger>
+      {!isDirector && (
+        <NativeTabs.Trigger name="worksheet">
+          <Icon sf={{ default: 'doc.text', selected: 'doc.text.fill' }} />
+          <Label>Worksheet</Label>
+        </NativeTabs.Trigger>
+      )}
     </NativeTabs>
   );
 }
@@ -131,6 +137,15 @@ function ClassicTabLayout() {
           title: 'Sanitation',
           tabBarIcon: ({ color }) =>
             isIOS ? <SymbolView name="drop" tintColor={color} size={22} /> : <Feather name="droplet" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="worksheet"
+        options={{
+          title: 'Worksheet',
+          tabBarButton: isDirector ? () => null : undefined,
+          tabBarIcon: ({ color }) =>
+            isIOS ? <SymbolView name="doc.text" tintColor={color} size={22} /> : <Feather name="clipboard" size={22} color={color} />,
         }}
       />
     </Tabs>

@@ -101,6 +101,16 @@ router.patch('/:id', requireDirector, async (req, res, next) => {
     }
     if (password) updates.passwordHash = hashPassword(password);
 
+    if (shouldUseFallbackStorage()) {
+      const updated = fallbackManagers.update(String(req.params.id), (m) => {
+        if (name) m.name = name.trim();
+        if (allowedHotels) m.allowedHotels = allowedHotels;
+      });
+      if (!updated) { res.status(404).json({ error: 'Manager not found' }); return; }
+      res.json({ ok: true });
+      return;
+    }
+
     await db.update(users).set(updates).where(eq(users.id, String(req.params.id)));
     res.json({ ok: true });
   } catch (err) { next(err); }
